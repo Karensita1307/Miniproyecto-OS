@@ -34,4 +34,47 @@ El laboratorio evalúa de manera estricta **5 escenarios experimentales**:
 * **Entrenamiento de IA:** Procesamiento computacional continuo para el entrenamiento de un modelo.
 * **Escenario Simultáneo:** Ejecución concurrente de todas las cargas anteriores para forzar la competencia crítica por recursos.
 
-> 📊 **Herramientas de Monitoreo Utilizadas:** `ht
+> 📊 **Herramientas de Monitoreo Utilizadas:** `htop`, `vmstat`, `iostat`, `docker stats`, `pg_stat_activity` y lectura directa sobre `/proc/stat` y `/proc/meminfo`.
+
+---
+
+## 📈 Resultados Clave de las Pruebas
+
+### 1. Estado Idle (Línea Base)
+El host se mantiene completamente estable, demostrando que las colas de ejecución de los contenedores están vacías.
+* **CPU Global:** ~1.10%
+* **RAM Global:** 1.14 GB / 7.64 GB
+
+### 2. Estrés de CPU Sostenido
+Al invocar el endpoint de números primos, un núcleo lógico del procesador es asignado casi por completo al contenedor de Next.js. El incremento en memoria RAM es marginal debido a que es procesamiento matemático puro sin almacenamiento intermedio.
+* **CPU Global:** ~99.00% (Contenedor Next.js absorbe el 98.26%)
+
+### 3. Estrés en PostgreSQL
+PostgreSQL implementa una arquitectura basada en multiprocesamiento simétrico (SMP), delegando las tareas a múltiples procesos hijos independientes, lo que eleva la lectura de CPU acumulada por encima del 100%. Las métricas de Block I/O demuestran un flujo crítico de escritura en almacenamiento secundario.
+* **CPU Contenedor Postgres:** 259.20%
+* **Block I/O:** 48.2 MB (In) / 112 MB (Out)
+
+### 4. Entrenamiento de IA
+Evidencia una naturaleza fuertemente mixta. Mientras que los núcleos del procesador realizan multiplicaciones matriciales continuas de alta densidad, Jupyter consume de manera masiva la memoria RAM física para albergar las matrices del dataset.
+* **RAM Contenedor Jupyter:** 3.62 GB consumidos
+
+### 5. Escenario Simultáneo (Saturación Crítica)
+El hardware ingresa en un cuello de botella absoluto. Los recursos globales del procesador se agotan por completo y la memoria RAM roza su capacidad máxima operativa, degradando drásticamente el rendimiento general.
+* **CPU Global:** 100.00%
+* **RAM Global:** 7.38 GB / 7.64 GB
+
+---
+
+## 🧠 Conclusiones Clave del Laboratorio
+* **Orquestación y Aislamiento:** `Docker Compose` facilitó enormemente el despliegue y el aislamiento de los servicios para analizar la competencia por recursos.
+* **Comportamiento de la RAM en Recuperación:** Tras detener el estrés, la CPU cae inmediatamente a un estado ocioso, pero la memoria RAM disminuye de forma paulatina. Esto se debe a que el kernel conserva datos en el caché de páginas virtuales para acelerar futuras lecturas de disco, liberándolos solo si otro proceso los solicita.
+* **Monitoreo de Bajo Nivel:** El uso de archivos del sistema como `/proc` demostró ser un mecanismo altamente efectivo para obtener métricas del host en tiempo real sin añadir sobrecarga masiva.
+
+---
+
+## 📖 Referencias (Norma IEEE)
+* [1] Docker Inc., "Docker Documentation."
+* [2] PostgreSQL Global Development Group, "PostgreSQL Documentation."
+* [3] Vercel, "Next.js Documentation."
+* [4] The Linux Kernel Documentation, "/proc filesystem."
+* [5] A. Silberschatz, P. B. Galvin, y G. Gagne, "Operating System Concepts."
